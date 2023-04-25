@@ -8,3 +8,6 @@ Note for the labeller:
 
 ![first-golf-club-prediction](/media/first-golf-club-prediction.png)
 
+Augmented data used for training:
+
+![augmentations](/media/augmentations.png)
