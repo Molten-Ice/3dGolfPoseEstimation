@@ -1,19 +1,45 @@
-### 2d inference ###
+##### 2d golf club keypoint inference #####
 
 import argparse
-
-# Create an argument parser
 parser = argparse.ArgumentParser(description='Generate of 2d club keypoints')
 parser.add_argument('--repo-dir', type=str, help='Directory of github repository')
-
 args = parser.parse_args()
 repo_dir = args.repo_dir
 
-video_path = 'output.mp4'
-
+## Download kaggle dataset ##
+import os
 import json
+import zipfile
+import subprocess
+
+data_path = repo_dir + "downloaded-data/"
+
 with open(repo_dir+"apikey.json", 'r') as file:
     kaggle_apikey = json.load(file)
+
+## Setup kaggle api ##
+if not os.path.exists('/root/.kaggle'): os.mkdir('/root/.kaggle')
+with open('/root/.kaggle/kaggle.json', 'w') as f:
+    json.dump(kaggle_apikey, f)
+
+result = subprocess.run('chmod 600 ~/.kaggle/kaggle.json', shell=True, capture_output=True, text=True)
+print("Command chmod:", result)
+result = subprocess.run(f'kaggle config set -n path -v {data_path}', shell=True, capture_output=True, text=True)
+print("Command kaggle config:", result)
+
+## Download and unzip  models ###
+dataset_name = "2dgolfmodels"
+model_name = "model_1_unfrozen_fpn_rotation.pth"
+result = subprocess.run(f'kaggle datasets download jamesdavey/{dataset_name} --force', shell=True, capture_output=True, text=True)
+print("Command datasets download:", result)
+zip_path = data_path+f"datasets/jamesdavey/{dataset_name}/{dataset_name}.zip"
+with zipfile.ZipFile(zip_path,"r") as zip_ref:
+    zip_ref.extractall(data_path)
+print("Unzipped file")
+
+#### 2d inferences ####
+
+video_path = 'output.mp4'
 
 import numpy as np
 import subprocess as sp
