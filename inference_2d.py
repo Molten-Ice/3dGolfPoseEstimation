@@ -1,12 +1,45 @@
-### 2d inference ###
+##### 2d golf club keypoint inference #####
 
-api_key_path = 'kaggle_apikey.json'
-video_path = 'output.mp4'
-repo_dir = "/content/"
+import argparse
+parser = argparse.ArgumentParser(description='Generate of 2d club keypoints')
+parser.add_argument('--repo-dir', type=str, help='Directory of github repository')
+args = parser.parse_args()
+repo_dir = args.repo_dir
 
+## Download kaggle dataset ##
+import os
 import json
-with open(api_key_path, 'r') as json_file:
-    kaggle_apikey = json.load(json_file)
+import zipfile
+import subprocess
+
+data_path = repo_dir + "downloaded-data/"
+
+with open(repo_dir+"apikey.json", 'r') as file:
+    kaggle_apikey = json.load(file)
+
+## Setup kaggle api ##
+if not os.path.exists('/root/.kaggle'): os.mkdir('/root/.kaggle')
+with open('/root/.kaggle/kaggle.json', 'w') as f:
+    json.dump(kaggle_apikey, f)
+
+result = subprocess.run('chmod 600 ~/.kaggle/kaggle.json', shell=True, capture_output=True, text=True)
+print("Command chmod:", result)
+result = subprocess.run(f'kaggle config set -n path -v {data_path}', shell=True, capture_output=True, text=True)
+print("Command kaggle config:", result)
+
+## Download and unzip  models ###
+dataset_name = "2dgolfmodels"
+model_name = "model_1_unfrozen_fpn_rotation.pth"
+result = subprocess.run(f'kaggle datasets download jamesdavey/{dataset_name} --force', shell=True, capture_output=True, text=True)
+print("Command datasets download:", result)
+zip_path = data_path+f"datasets/jamesdavey/{dataset_name}/{dataset_name}.zip"
+with zipfile.ZipFile(zip_path,"r") as zip_ref:
+    zip_ref.extractall(data_path)
+print("Unzipped file")
+
+#### 2d inferences ####
+
+video_path = 'output.mp4'
 
 import numpy as np
 import subprocess as sp
@@ -66,17 +99,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageOps
 
-data_path = repo_dir + "downloaded-data/"
 
-
-
+model_name = "model_1_unfrozen_fpn_rotation.pth"
 device = 'cuda:0'
 # loaded_model = keypointrcnn_resnet50_fpn(weights=KeypointRCNN_ResNet50_FPN_Weights.DEFAULT)
 loaded_model = keypointrcnn_resnet50_fpn()
 loaded_model.eval()
 out = nn.ConvTranspose2d(512, 2, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
 loaded_model.roi_heads.keypoint_predictor.kps_score_lowres = out
-loaded_model.load_state_dict(torch.load('downloaded-data/'+model_name))
+loaded_model.load_state_dict(torch.load(repo_dir+'downloaded-data/'+model_name))
 loaded_model = loaded_model.to(device)
 loaded_model.eval()
 # print(list(loaded_model.backbone.fpn.parameters())[0][:5, :5, 0, 0])
