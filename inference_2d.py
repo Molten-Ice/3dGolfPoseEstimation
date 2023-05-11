@@ -1,12 +1,19 @@
 ### 2d inference ###
 
-api_key_path = 'kaggle_apikey.json'
+import argparse
+
+# Create an argument parser
+parser = argparse.ArgumentParser(description='Generate of 2d club keypoints')
+parser.add_argument('--repo-dir', type=str, help='Directory of github repository')
+
+args = parser.parse_args()
+repo_dir = args.repo_dir
+
 video_path = 'output.mp4'
-repo_dir = "/content/"
 
 import json
-with open(api_key_path, 'r') as json_file:
-    kaggle_apikey = json.load(json_file)
+with open(repo_dir+"apikey.json", 'r') as file:
+    kaggle_apikey = json.load(file)
 
 import numpy as np
 import subprocess as sp
@@ -66,17 +73,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageOps
 
-data_path = repo_dir + "downloaded-data/"
 
-
-
+model_name = "model_1_unfrozen_fpn_rotation.pth"
 device = 'cuda:0'
 # loaded_model = keypointrcnn_resnet50_fpn(weights=KeypointRCNN_ResNet50_FPN_Weights.DEFAULT)
 loaded_model = keypointrcnn_resnet50_fpn()
 loaded_model.eval()
 out = nn.ConvTranspose2d(512, 2, kernel_size=(4, 4), stride=(2, 2), padding=(1, 1))
 loaded_model.roi_heads.keypoint_predictor.kps_score_lowres = out
-loaded_model.load_state_dict(torch.load('downloaded-data/'+model_name))
+loaded_model.load_state_dict(torch.load(repo_dir+'downloaded-data/'+model_name))
 loaded_model = loaded_model.to(device)
 loaded_model.eval()
 # print(list(loaded_model.backbone.fpn.parameters())[0][:5, :5, 0, 0])
