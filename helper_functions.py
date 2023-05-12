@@ -8,8 +8,8 @@ from matplotlib.animation import FuncAnimation, writers
 from mpl_toolkits.mplot3d import Axes3D
 import subprocess as sp
 
-    import os
-    import shutil
+import os
+import shutil
 
 
 valid_pairings = np.array([[16, 10], [15, 8], [14, 6], [13, 9], [12, 7], [11, 5], [6, 15], [5, 13], [4, 11], [3, 16], [2, 14], [1, 12]])  # [10/9, 0]
@@ -173,7 +173,7 @@ def generate_aligned_coordinates(poses, keypoints, club_keypoints_2d, take_minim
     all_z_coordinates = np.array(all_z_coordinates)
 
 
-    return adjusted_poses, club_coordinates, club_coordinates_original
+    return adjusted_poses, club_coordinates, club_coordinates_original, all_z_coordinates
 
 def get_resolution(filename):
     """Returns height, width of video"""
@@ -254,7 +254,7 @@ def visualize_predictions(keypoints, adjusted_poses, club_coordinates, club_keyp
         fig = plt.figure(figsize=(20, 10))
         original = fig.add_subplot(2, 4, 1)
         original.set_axis_off()
-        original.set_title('Input Image')
+        original.set_title(f'Input Image, frame {i}')
 
         #club 2d keypoints
         club_2d = fig.add_subplot(2, 4, 2)
@@ -273,7 +273,7 @@ def visualize_predictions(keypoints, adjusted_poses, club_coordinates, club_keyp
             projection_3d.set_aspect('equal')
             projection_3d.set_xticklabels([])
             projection_3d.set_yticklabels([])
-            # projection_3d.set_zticklabels([])
+            projection_3d.set_zticklabels([])
             # ax.set_axis_off()
 
         #3d club
@@ -294,15 +294,16 @@ def visualize_predictions(keypoints, adjusted_poses, club_coordinates, club_keyp
         projection_3d_view1 = fig.add_subplot(2, 4, 4, projection='3d')
         format(projection_3d_view1)
         projection_3d_view1.set_title("Generated Keypoints view 1")
-        projection_3d_view1.view_init(elev=90., azim=90) 
+        projection_3d_view1.view_init(elev=90., azim=90)
         projection_3d_view1.invert_xaxis()
 
         #3d combined 2
         projection_3d_view2 = fig.add_subplot(2, 4, 8, projection='3d')
         format(projection_3d_view2)
         projection_3d_view2.set_title("Generated Keypoints view 2")
+        projection_3d_view2.view_init(elev=65., azim=0, roll = -90)  
+        projection_3d_view2.invert_xaxis()
 
-        
         #original image
         original.imshow(frame, aspect='equal')
 
@@ -338,8 +339,6 @@ def visualize_predictions(keypoints, adjusted_poses, club_coordinates, club_keyp
                         [pos[j, 2], pos[j_parent, 2]], zdir='z', c=col)
         projection_3d_view1.scatter(*club_3d_keypoints.T, zdir='z', color='blue', edgecolors='white', zorder=10)
         projection_3d_view1.plot(*club_3d_keypoints.T, zdir='z', c = 'blue')
-        projection_3d_view1.view_init(elev=90., azim=90) # Note Y axis increases as it goes down on image so need to rotate 3d plot
-        projection_3d_view1.invert_xaxis()
 
         #3d combined 2
         for j, j_parent in enumerate(skeleton_parents):
@@ -351,9 +350,7 @@ def visualize_predictions(keypoints, adjusted_poses, club_coordinates, club_keyp
                         [pos[j, 2], pos[j_parent, 2]], zdir='z', c=col)
         projection_3d_view2.scatter(*club_3d_keypoints.T, zdir='z', color='blue', edgecolors='white', zorder=10)
         projection_3d_view2.plot(*club_3d_keypoints.T, zdir='z', c = 'blue')
-        projection_3d_view2.view_init(elev=75., azim=0, roll = -90)  
-        projection_3d_view2.invert_xaxis()
-
+        
         plt.subplots_adjust(wspace=0.1, hspace=0)
         plt.savefig(f'frames/{i}.jpg')
         plt.close()
