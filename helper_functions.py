@@ -8,6 +8,9 @@ from matplotlib.animation import FuncAnimation, writers
 from mpl_toolkits.mplot3d import Axes3D
 import subprocess as sp
 
+    import os
+    import shutil
+
 
 valid_pairings = np.array([[16, 10], [15, 8], [14, 6], [13, 9], [12, 7], [11, 5], [6, 15], [5, 13], [4, 11], [3, 16], [2, 14], [1, 12]])  # [10/9, 0]
 args_viz_subject = "output.mp4"
@@ -212,3 +215,147 @@ def read_video(filename, skip=0, limit=-1):
                 continue
             if i > skip:
                 yield np.frombuffer(data, dtype='uint8').reshape((h, w, 3))
+
+
+# %matplotlib inline
+def visualize_predictions(keypoints, adjusted_poses, club_coordinates, club_keypoints_2d, keypoints_symmetry):
+    if os.path.exists('frames'):
+        shutil.rmtree("frames")
+    os.makedirs('frames')
+
+    joints_left, joints_right = [4, 5, 6, 11, 12, 13], [1, 2, 3, 14, 15, 16]
+    skeleton_parents = [-1,  0,  1,  2,  0,  4,  5,  0,  7,  8,  9,  8, 11, 12,  8, 14, 15]
+    joints_right_2d = keypoints_symmetry[1]
+    colors_2d = np.full(keypoints.shape[1], 'black')
+    colors_2d[joints_right_2d] = 'red'
+
+    # For visualization
+    min_max_values = []
+    for dim in range(3):
+        body_min_value, body_max_value = np.sort([x.min() for x in adjusted_poses[..., dim]])[5], np.sort([x.max() for x in adjusted_poses[..., dim]])[-5]
+        club_min_value, club_max_value = np.sort([x.min() for x in club_coordinates[..., dim]])[5], np.sort([x.max() for x in club_coordinates[..., dim]])[-5]
+        min_value = min(body_min_value, club_min_value)
+        max_value = max(body_max_value, club_max_value)
+        min_max_values.append([min_value, max_value])
+    min_max_values = np.array(min_max_values)
+    print("min_max values", min_max_values)
+
+    i = 0 #starting frame number
+    # Load video using ffmpeg
+    for f in read_video('output.mp4', skip = i):
+        frame = f
+
+        pos = adjusted_poses[i].copy()
+        frame_2d_keypoints = keypoints[i].copy()
+        frame_club_2d_keypoints = club_keypoints_2d[i].copy()
+        club_3d_keypoints = club_coordinates[i].copy()
+
+        #original image
+        fig = plt.figure(figsize=(20, 10))
+        original = fig.add_subplot(2, 4, 1)
+        original.set_axis_off()
+        original.set_title('Input Image')
+
+        #club 2d keypoints
+        club_2d = fig.add_subplot(2, 4, 2)
+        club_2d.set_axis_off()
+        club_2d.set_title('Custom KeypointRCNN')
+
+        #2d keypoints (from detectron2)
+        detecton_2d = fig.add_subplot(2, 4, 6)
+        detecton_2d.set_axis_off()
+        detecton_2d.set_title('Detectron2')
+
+        def format(projection_3d):
+            projection_3d.set_xlim3d(min_max_values[0])
+            projection_3d.set_ylim3d(min_max_values[1])
+            projection_3d.set_zlim3d(min_max_values[2])
+            projection_3d.set_aspect('equal')
+            projection_3d.set_xticklabels([])
+            projection_3d.set_yticklabels([])
+            # projection_3d.set_zticklabels([])
+            # ax.set_axis_off()
+
+        #3d club
+        projection_3d_club = fig.add_subplot(2, 4, 3, projection='3d')
+        format(projection_3d_club)
+        projection_3d_club.set_title("3D Club Prediction")
+        projection_3d_club.view_init(elev=90., azim=90)
+        projection_3d_club.invert_xaxis()
+
+        #3d body
+        projection_3d_body = fig.add_subplot(2, 4, 7, projection='3d')
+        format(projection_3d_body)
+        projection_3d_body.set_title("VideoPose3D")
+        projection_3d_body.view_init(elev=90., azim=90)
+        projection_3d_body.invert_xaxis()
+
+        #3d combined 1
+        projection_3d_view1 = fig.add_subplot(2, 4, 4, projection='3d')
+        format(projection_3d_view1)
+        projection_3d_view1.set_title("Generated Keypoints view 1")
+        projection_3d_view1.view_init(elev=90., azim=90) 
+        projection_3d_view1.invert_xaxis()
+
+        #3d combined 2
+        projection_3d_view2 = fig.add_subplot(2, 4, 8, projection='3d')
+        format(projection_3d_view2)
+        projection_3d_view2.set_title("Generated Keypoints view 2")
+
+        
+        #original image
+        original.imshow(frame, aspect='equal')
+
+        #club 2d keypoints
+        club_2d.imshow(frame, aspect='equal')
+        club_2d.scatter(*frame_club_2d_keypoints.T, 10, color='blue', edgecolors='white', zorder=10)
+        club_2d.plot(*frame_club_2d_keypoints.T, linestyle = 'dashed', color = 'white')
+        
+        #2d keypoints (from detectron2)
+        detecton_2d.imshow(frame, aspect='equal')
+        detecton_2d.scatter(*frame_2d_keypoints[valid_pairings[:, 1]].T, 10, color=colors_2d[valid_pairings[:, 1]], edgecolors='white', zorder=10)
+
+        #3d club
+        projection_3d_club.scatter(*club_3d_keypoints.T, zdir='z', color='blue', edgecolors='white', zorder=10)
+        projection_3d_club.plot(*club_3d_keypoints.T, zdir='z', c = 'blue')
+
+        #3d body
+        for j, j_parent in enumerate(skeleton_parents):
+            if j_parent == -1:
+                continue
+            col = 'red' if j in joints_right else 'black'
+            projection_3d_body.plot([pos[j, 0], pos[j_parent, 0]],
+                        [pos[j, 1], pos[j_parent, 1]],
+                        [pos[j, 2], pos[j_parent, 2]], zdir='z', c=col)
+
+        # 3d combined 1
+        for j, j_parent in enumerate(skeleton_parents):
+            if j_parent == -1:
+                continue
+            col = 'red' if j in joints_right else 'black'
+            projection_3d_view1.plot([pos[j, 0], pos[j_parent, 0]],
+                        [pos[j, 1], pos[j_parent, 1]],
+                        [pos[j, 2], pos[j_parent, 2]], zdir='z', c=col)
+        projection_3d_view1.scatter(*club_3d_keypoints.T, zdir='z', color='blue', edgecolors='white', zorder=10)
+        projection_3d_view1.plot(*club_3d_keypoints.T, zdir='z', c = 'blue')
+        projection_3d_view1.view_init(elev=90., azim=90) # Note Y axis increases as it goes down on image so need to rotate 3d plot
+        projection_3d_view1.invert_xaxis()
+
+        #3d combined 2
+        for j, j_parent in enumerate(skeleton_parents):
+            if j_parent == -1:
+                continue
+            col = 'red' if j in joints_right else 'black'
+            projection_3d_view2.plot([pos[j, 0], pos[j_parent, 0]],
+                        [pos[j, 1], pos[j_parent, 1]],
+                        [pos[j, 2], pos[j_parent, 2]], zdir='z', c=col)
+        projection_3d_view2.scatter(*club_3d_keypoints.T, zdir='z', color='blue', edgecolors='white', zorder=10)
+        projection_3d_view2.plot(*club_3d_keypoints.T, zdir='z', c = 'blue')
+        projection_3d_view2.view_init(elev=75., azim=0, roll = -90)  
+        projection_3d_view2.invert_xaxis()
+
+        plt.subplots_adjust(wspace=0.1, hspace=0)
+        plt.savefig(f'frames/{i}.jpg')
+        plt.close()
+        print(f"Saved frame: [{i}/{len(adjusted_poses)}]")
+        i += 1
