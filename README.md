@@ -6,13 +6,13 @@ https://github.com/Molten-Ice/3dGolfPoseEstimation/assets/58090981/afa0bb36-8375
 
 ![good-predictions](/media/amazing-predictions.png)
 
-Training metrics:
+Test dataset metrics (before and after training):
 
-|                | Before training | After training |
-|----------------|-----------------|----------------|
-| test Evaluation| bbox: 143.12,   | bbox: 14.19,   |
-|                | grip: 102.43,   | grip: 6.87,    |
-|                | head: 187.06    | head: 10.71    |
+| Before training | After training |
+|-----------------|----------------|
+| bbox: 143.12,   | bbox: 14.19,   |
+| grip: 102.43,   | grip: 6.87,    |
+| head: 187.06    | head: 10.71    |
 
 Note for the labeller:
 - Grip keypoints are labelled in the centre of the hands colinear with the club.
@@ -21,5 +21,3 @@ Note for the labeller:
 ## Augmented data used for training
 
 ![augmentations](/media/augmentations.png)
-
-
